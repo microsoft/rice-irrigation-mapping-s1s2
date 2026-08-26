@@ -3,7 +3,7 @@ scikit-learn==1.6.1
 scipy==1.15.2
 numpy==1.26.4
 matplotlib==3.8.0
-geopandas==1.0.1
+geopandas==1.1.2
 jupyter==1.0.0
 ipykernel==6.28.0
 python-dotenv==0.21.0
