@@ -2,6 +2,8 @@
 # Licensed under the MIT License.
 
 import argparse
+import hashlib
+import io
 import os
 import numpy as np
 import pandas as pd
@@ -12,6 +14,23 @@ from pathlib import Path
 import joblib
 import lightgbm as lgb
 from sklearn.metrics import classification_report, confusion_matrix
+
+
+def load_verified_joblib(model_path: Path, trusted_sha256: list[str]):
+    if not trusted_sha256:
+        raise ValueError(
+            f"Refusing to load {model_path}: .joblib models require "
+            "--trusted-model-sha256 from a trusted source."
+        )
+
+    model_bytes = model_path.read_bytes()
+    if hashlib.sha256(model_bytes).hexdigest() not in trusted_sha256:
+        raise ValueError(
+            f"SHA-256 verification failed for {model_path}; model not loaded."
+        )
+
+    # Deserialize the verified bytes, not a path that could be replaced after checking.
+    return joblib.load(io.BytesIO(model_bytes))
 
 
 def main():
@@ -43,6 +62,18 @@ def main():
         "--split-val", type=float, default=0.0, help="Validation split ratio"
     )
     parser.add_argument("--lgb", action="store_true", help="Use LightGBM model")
+    parser.add_argument(
+        "--trusted-model-sha256",
+        action="append",
+        type=str.lower,
+        default=[],
+        metavar="SHA256",
+        help=(
+            "SHA-256 digest obtained from a trusted source for an approved .joblib "
+            "model. Repeat for multiple models. Required unless using --lgb or "
+            "only LightGBM .txt models."
+        ),
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -122,7 +153,9 @@ def main():
     model = None
     for model_path in model_dir.glob("*"):
         if model_path.suffix == ".joblib" and not args.lgb:
-            models[f"{model_path.stem}"] = joblib.load(model_path)
+            models[f"{model_path.stem}"] = load_verified_joblib(
+                model_path, args.trusted_model_sha256
+            )
             model = models[f"{model_path.stem}"]
         elif model_path.suffix == ".txt":
             model = lgb.Booster(model_file=str(model_path))
