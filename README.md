@@ -160,6 +160,18 @@ python scripts/visualization/error_analysis.py \
 - `--split`: Test set split ratio (default: 0.1)
 - `--split-val`: Validation set split ratio (default: 0.0)
 - `--lgb`: Use LightGBM model (if not set, will use Random Forest)
+- `--trusted-model-sha256`: Trusted SHA-256 digest of an approved `.joblib` model; repeat for multiple models
+
+Joblib models can execute Python code when loaded. Error analysis refuses to load
+any `.joblib` file without a matching `--trusted-model-sha256`. Obtain each digest
+from the trusted model producer or record it immediately after training in a
+trusted environment, before copying the model to shared storage. Do not generate
+the trusted digest from an unverified file in the shared data directory or use a
+checksum stored alongside that file: an attacker could replace both. Every
+`.joblib` model discovered must match a supplied digest or analysis stops.
+
+LightGBM's native `.txt` models do not use joblib deserialization and do not require
+this option. With `--lgb`, `.joblib` files are ignored.
 
 -------
 
